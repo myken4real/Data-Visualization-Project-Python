@@ -1,0 +1,603 @@
+---
+title: "DATA VISUALIZATION(R) PROJECT"
+author: "MATRICULATION NUMBER: 22302020 "
+date: "2024-06-27"
+output: 
+  html_document: 
+    toc: true
+    number_sections: true
+editor_options: 
+  chunk_output_type: inline
+---
+
+
+
+# Loading of Libraries.
+**All the packages were already installed during the class excercises .
+The following libraries were loaded**
+```{r}
+suppressPackageStartupMessages(library(tidyverse))
+library(RColorBrewer)  
+library(patchwork)
+library(ggrepel)
+```
+
+
+
+# TCGA expression data:
+
+
+## Load and prepare the data
+```{r}
+# Read in the files using the functions discussed in class
+#getwd()
+setwd("~/Downloads/DataVis_R_2024_FinalProject/")
+tcga_cancer <- read_csv("tcga_cancer.csv", show_col_types = FALSE)
+tcga_cancer_labels  <- read_csv("tcga_cancer_labels.csv", show_col_types = FALSE)
+
+# select the first 200 samples for gene 1 
+tcga_cancer_selected <- tcga_cancer[1:200, 3:45]
+
+# Select the first 200 cancer labels 
+tcga_cancer_labels_selected <- tcga_cancer_labels[1:200, ]
+
+# Define data to be used for the ggplot2 by selecting gene_1 by indexing
+gene_1 <- tcga_cancer_selected[ , 1]
+
+```
+
+## Plotting:
+
+
+### Expression distribution Gene1:
+a. **Histogram with 0.4 binwidth** 
+```{r}
+# Define plot 'i' using ggplot, using 'gene_1' data frame for x-axis
+i <- ggplot(data.frame(gene_1), aes(x = gene_1)) +
+  # Add histogram layer with binwidth of 0.4, black border, and gray fill
+  geom_histogram(binwidth = 0.4, color = "black", fill = "gray88") +
+  # Set plot title and axis labels
+  labs(title = "Expression Gene 1", x = "RNA counts", y = "Count") +
+  # Set x-axis and y-axis limits
+  coord_cartesian(xlim = c(-0.5, 7), ylim = c(0, 45), expand = FALSE) +
+  # Use minimal theme for the plot appearance
+  theme_minimal() +
+  # Customize plot theme settings
+  theme(
+    plot.title = element_text(size = 16),  # Title font size
+    panel.border = element_rect(fill = NA, linewidth = 2),  # Panel border
+    panel.grid = element_blank(),  # Remove panel grid lines
+    axis.text = element_text(size = 16, face = "bold"),  # Axis text font size and style
+    axis.title = element_text(size = 16, face = "bold"),  # Axis title font size and style
+    axis.ticks = element_line(linewidth = 1.5),  # Axis tick marks thickness
+    axis.ticks.length = unit(0.1, "cm")  # Axis tick mark length
+  )
+```
+
+```{r i, fig.width = 4.5, fig.height = 4.55, echo=FALSE, message = FALSE}
+plot(i)
+```
+
+
+
+### Binwidth adjustment
+***In histograms, the choice of bin width plays a crucial role in how the data distribution is visualized. A too narrow or too wide bin width can obscure important patterns or details in the data. Typically, the bin width should be chosen such that it effectively represents the underlying distribution without oversmoothing or undersmoothing the data.***
+***The above  histogram with 0.4 binwidth setting is moderately smooth, with bins that provide a general overview of the data distribution. The choice of 0.4 seems reasonable for an initial exploration but might benefit from exploring other values to see if a clearer pattern emerges.***
+
+
+
+
+### The histogram with hgher binwidth** 
+**The wider bins tend to smooth out the distribution, potentially masking finer details or variability in the data, however the  histogram did not capture subtle peaks or modes as effectively as narrower bin widths.(for example after gene count of 6), leading to loss of important details***
+```{r}
+# Plot the histogram with 0.5 binwidth.
+higher_bin <- ggplot(data.frame(gene_1), aes(x = gene_1)) +
+  geom_histogram(binwidth = 0.5, color = "black", fill = "lightgray" ) +
+  labs(title = "Expression Gene 1", x = "RNA counts", y = "Count") +
+  coord_cartesian(xlim = c(-0.5, 7), ylim=c(0, 45), expand = FALSE) +
+  theme_minimal()+
+  theme(
+    plot.title = element_text(size = 16),
+    panel.border = element_rect(fill = NA, linewidth = 2),
+    panel.grid = element_blank(), 
+    axis.text = element_text(size = 16, face = "bold"),  
+    axis.title = element_text(size = 16, face ="bold"),  
+    axis.ticks  = element_line(linewidth  = 1.5),  
+    axis.ticks.length = unit(0.1, "cm"), 
+  )
+```
+
+```{r higher_bin, fig.width = 4.5, fig.height = 4.55, echo=FALSE, message = FALSE}
+plot(higher_bin)
+```
+
+
+
+
+### The histogram with lower binwidth
+***With a bin width of 0.2, the histogram provides more bins, potentially revealing finer details in the distribution of gene expression counts. This finer granularity might be beneficial for detecting subtle peaks or modes that were less apparent with the wider bin width of 0.4. However, it can also introduce more noise or variability.***
+```{r}
+lower_bin <- ggplot(data.frame(gene_1), aes(x = gene_1)) +
+  geom_histogram(binwidth = 0.2, color = "black", fill = "lightgray" ) +
+  labs(title = "Expression Gene 1", x = "RNA counts", y = "Count") +
+  coord_cartesian(xlim = c(-0.5, 7), ylim=c(0, 45), expand = FALSE) +
+  theme_minimal()+
+  theme(
+    plot.title = element_text(size = 16),
+    panel.border = element_rect(fill = NA, linewidth = 2),
+    panel.grid = element_blank(), 
+    axis.text = element_text(size = 16, face = "bold"), 
+    axis.title = element_text(size = 16, face ="bold"),  
+    axis.ticks  = element_line(linewidth  = 1.5), 
+    axis.ticks.length = unit(0.1, "cm"),
+  )
+```
+
+```{r lower_bin , fig.width = 4.5, fig.height = 4.55, echo=FALSE, message = FALSE}
+plot(lower_bin)
+```
+
+
+
+### Gene expression correlation
+```{r}
+# Define part of data to be used for the plot by selecting Gene_12 by indexing(Gen-1 has been selected above)
+gene_12 <- tcga_cancer_selected[ , 12]
+
+# Pearson correlation coefficient estimation
+correlation <- cor(gene_1, gene_12) 
+
+# Scatter plot with linear regression line and Pearson's correlation:
+ii <- ggplot(tcga_cancer_selected, aes(x = gene_1, y = gene_12)) +
+  
+  # Add linear regression line with dashed line type, black color, and standard error shading
+  
+  geom_smooth(method = "lm", color = "black", linetype = "dashed", se = TRUE) +
+  
+  # Add points with solid black border, light cyan fill, size 4, and 0.5 stroke width
+  geom_point(shape = 21, color = "black", fill = "#99cccc", size = 4, stroke = 0.5) +
+  
+  # Annotate Pearson's correlation coefficient with rounded to 3 decimals
+  annotate("text", x = Inf, y = Inf, label = paste("R = ", round(correlation, 3)), hjust = 1.1, vjust = 3, size = 5) +
+  
+  # Set plot title, x-axis label, and y-axis label
+  labs(
+    title = "Relationship Gene 1 and Gene 12",
+    x = "Gene 1",
+    y = "Gene 12"
+  ) +
+  
+  # Use theme_bw() for a black and white theme
+  theme_bw() +
+  
+  # Customize theme elements
+  theme(
+    plot.title = element_text(size = 16),  # Title font size
+    panel.border = element_rect(linewidth = 3),  # Panel border thickness
+    panel.grid.minor = element_blank(),  # Remove minor grid lines
+    axis.ticks = element_line(linewidth = 1),  # Axis tick marks thickness
+    axis.text = element_text(size = 16),  # Axis text size
+    axis.title = element_text(size = 16, face = "bold")  # Axis title size and bold face
+   
+        )
+```
+
+```{r ii, fig.width = 4.5, fig.height = 4.55, echo=FALSE, message = FALSE}
+plot(ii)
+```
+ 
+
+
+### Class proportions (Stacked Bar Chart)
+```{r}
+#Select the first 200 cancer labels and have a glimpse of it
+tcga_cancer_labels_selected <- tcga_cancer_labels[1:200, ]
+
+# Combine data with labels
+combined_data <- cbind(tcga_cancer_labels_selected, tcga_cancer_selected)
+
+# Convert the labels to factors
+combined_data$Class <- as.factor(combined_data$Class)
+
+# Summarize the data to get counts of each class
+class_counts <- combined_data %>%
+  group_by(Class) %>%
+  summarise(Count = n())
+
+# Calculate percentages
+class_counts <- class_counts %>%
+  mutate(Percentage = Count / sum(Count) * 100)
+
+# Define  aquantive color palette("Pastel1" ) for the 3 classes and flipping the color for the classes
+flipped_colors <- rev(brewer.pal(n = length(unique(class_counts$Class)), name = "Pastel1"))
+
+# Create a stacked bar plot showing class distribution
+iii <- ggplot(class_counts, aes(x = Percentage, y = "", fill = Class)) + 
+  # Define data and aesthetics
+  geom_bar(stat = "identity", width = 0.5, color = "black") + 
+  # Create a bar plot with black borders
+  coord_cartesian(expand = FALSE) +  
+  
+  # Ensure plot limits match data without expansion
+  geom_text(aes(label = Count),  # Add text labels for bar counts
+            position = position_stack(vjust = 0.5),  
+            hjust = 0.5,  # Center labels horizontally
+            size = 5, color = "black") +  # Set label size and color
+  scale_fill_manual(values = flipped_colors) +  # Use custom fill colors
+  labs(
+    x = "Percentage (%)",  # X-axis label
+    y = NULL,  # No y-axis label
+    title = "Distribution of classes (n = 200)"  # Plot title
+  ) +
+  theme_minimal() +  # Use minimal theme
+  theme(
+    axis.text = element_text(size = 16, face = "bold"),  # Axis text size and bold face
+    
+    axis.title = element_text(size = 16, face ="bold"),  # Axis title size and bold face
+    
+    plot.title = element_text(size = 16),  # Plot title size
+    axis.ticks.x  = element_line(linewidth  = 1.5),  # X-axis tick thickness
+    axis.ticks.length = unit(0.1, "cm"),  # X-axis tick length
+    legend.position = "top",  # Position legend at the top
+    panel.grid.major = element_blank(),  # Remove major grid lines
+    panel.grid.minor = element_blank(),  # Remove minor grid lines
+    aspect.ratio = 0.12  # Set aspect ratio
+  ) +
+  guides(fill = guide_legend(reverse = TRUE))  # Reverse the legend order
+
+iii  
+```
+
+
+
+
+
+### Correlation:
+**Correlation is an estimation of the strength(magnitude) of the linear relationship between two variables. In correlation analysis. The Pearson correlation coefficient(which ranges from -1 to 1)  with values toward 1 being interpreted as strong positive linear relationships  , values toward -1 as  negative but strong linear relationship, and  0 indicates no linear relationship.**
+**Calculated coefficient suggest very weak negative linear correlation (as one variable increases, the other tends to decrease slightly) between Gene1 and Gene12.**
+  
+
+
+### Combine the plots for plot i, ii and iii
+```{r}
+# Combine plots i and ii horizontally with specified relative widths
+horizontal_top <- i + ii + plot_layout(widths = c(1, 2))
+
+# Combine the horizontal_top with plot iii stacked vertically
+final_plot <- horizontal_top / iii + plot_layout(heights = c(2, 1)) + 
+ 
+# Annotate the combined plot in order to set the numbering i, ii and iii respectively
+ plot_annotation(tag_levels = list(c("i", "ii", "iii")))
+```
+
+
+```{r final_plot , fig.width = 8, fig.height = 8, echo=FALSE, message = FALSE}
+plot(final_plot)
+```
+
+
+
+
+
+# Human genome :
+
+
+
+## Load and prepare data
+```{r}
+# Read in the files using the functions discussed in class
+getwd()
+setwd("~/Downloads/DataVis_R_2024_FinalProject/")
+genes <- read.delim("hg38_genes.tsv", header = TRUE, stringsAsFactors = FALSE)
+
+# Filter for specific gene types
+filtered_gene_types <- genes %>%
+  filter(gene_type %in% c("protein_coding", "lncRNA", "processed_pseudogene", "transcribed_unprocessed_pseudogene"))
+
+# Rename "protein_coding" to "mRNA" and combine pseudogene types
+filtered_renamed_gene <- filtered_gene_types %>% 
+mutate(gene_type = recode(gene_type, 
+                          "protein_coding" = "mRNA", 
+                          "processed_pseudogene" = "pseudo", 
+                          "transcribed_unprocessed_pseudogene" = "pseudo"))
+# Estimation of gene_lenth
+gene_start <- filtered_renamed_gene[, 2]
+gene_end <- filtered_renamed_gene[, 3]
+gene_length2 <- gene_end - gene_start
+
+# Filter by gene length
+filtered_renamed_gene <- filtered_renamed_gene %>%
+  filter( gene_length2 > 1000 & gene_length2 <= 20000)
+
+# Summarize counts per gene class
+gene_counts <- filtered_renamed_gene %>%
+  group_by(gene_type) %>%
+  summarise(count = n())
+
+# Reverse the order of the classes
+gene_counts$gene_type <- factor(gene_counts$gene_type, levels = rev(unique(gene_counts$gene_type)))
+
+# Define the Set2 color palette and reverse it
+set2_colors <- rev(brewer.pal(n = 3, name = "Set2"))
+```
+
+
+
+
+## Plotting.
+
+
+### Gene count(Bar Chart).
+```{r}
+# Importing the ggplot2 library and setting up the plot
+A <- ggplot(gene_counts, aes(x = gene_type, y = count, fill = gene_type)) +
+  
+  # Creating a bar plot where the heights of the bars represent counts
+  geom_bar(stat = "identity") +
+  
+  # Setting the y-axis limit to a maximum slightly higher than the highest count
+  ylim(0, max(gene_counts$count) * 1.1) +
+  
+  # Setting the Cartesian coordinate limits for both x and y axes, removing padding
+  coord_cartesian(xlim = c(0.5, 3.5), ylim=c(0, 4000), expand = FALSE) +
+  
+  # Manually setting the fill colors for the bars
+  scale_fill_manual(values = set2_colors) +
+  
+  # Manually setting the colors of the outlines of the bars
+  scale_color_manual(values = set2_colors) +
+  
+  # Adding labels and a title to the plot
+  labs(
+    title = "Total gene number",
+    x = "Class",
+    y = "Count"
+  ) +
+  
+  # Applying a minimal theme to the plot for a cleaner look
+  theme_minimal() +
+  
+  # Customizing various theme elements of the plot
+  theme(
+    # Customizing the plot title
+    plot.title = element_text(size = 16, face = "bold"),
+    
+    # Adding dashed lines to the major y-axis grid lines
+    panel.grid.major.y = element_line(size = 0.5, linetype = "dashed", colour = "grey"),
+    
+    # Removing minor grid lines on the x-axis
+    panel.grid.minor.x = element_blank(),
+    
+    # Removing major grid lines on the x-axis
+    panel.grid.major.x = element_blank(),
+    
+    # Removing minor grid lines on the y-axis
+    panel.grid.minor.y = element_blank(),
+    
+    # Adding a border around the panel
+    panel.border = element_rect(fill = NA, linewidth = 0.5),
+    
+    # Rotating and customizing the x-axis text for better readability
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 14),
+    
+    # Customizing the y-axis text
+    axis.text.y = element_text(angle = 0, size = 14),
+    
+    # Customizing the axis titles
+    axis.title = element_text(size = 16, face = "bold"),
+    
+    # Removing the legend as it is not needed
+    legend.position = "none"
+  )
+
+```
+
+```{r A, fig.width = 4.5, fig.height = 4.5, echo=FALSE, message = FALSE}
+plot(A)
+```
+
+
+
+### Length distribution.
+```{r}
+#To obtain gene_lenght 
+gene_start <- filtered_renamed_gene[, 2]
+gene_end <- filtered_renamed_gene[, 3]
+gene_length2 <- gene_end - gene_start
+
+# Calculate medians for each gene type
+medians <- aggregate(gene_length2 ~ gene_type, filtered_renamed_gene, median)
+
+# Define the color for gene categories 
+set_color  <- c("pseudo" ="#8DA0CB", "mRNA" = "#FC8D62", "lncRNA" = "#66C2A5")
+
+# Plot the length density distribution of the gene classes
+B <- ggplot(filtered_renamed_gene, aes(x = gene_length2, fill = gene_type)) + # Define data and aesthetics
+  geom_density(alpha = 0.5) +  # Add density plot with transparency
+  geom_vline(data = medians, aes(xintercept = gene_length2, color = gene_type), linetype = "dashed") +  # Add dashed vertical lines for medians
+  labs(x = "Gene Length(bp)", y = "Density", title = "Length distribution of gene classes") +  # Set labels and title
+  scale_fill_manual(values = set_color) +  # Manually set fill colors
+  scale_color_manual(values = set_color) +  # Manually set line colors
+  scale_y_continuous(expand = c(0, 0)) +  # Ensure no expansion of y-axis limits
+  theme_minimal() +  # Apply minimal theme
+  theme(
+    plot.title = element_text(size = 16),  # Set plot title size
+    axis.title = element_text(face = "bold", size = 16),  # Set axis title font style and size
+    axis.text = element_text(size = 16, hjust = 1),  # Set axis text size and horizontal justification
+    panel.grid.minor = element_blank()  # Remove minor grid lines
+  )
+```
+
+```{r B, fig.width = 8, fig.height = 4.5, echo=FALSE, message = FALSE}
+plot(B)
+```
+
+**The overlapping areas  in the above plot type is making it difficult to distinguish between classes, hence it Less effective for comparing exact quartiles and outliers.**
+
+*The box plot is generally more intuitive to understand and read, especially for comparing central tendencies, variability, and identifying outliers across classes. It provides clear visual markers for median, quartiles, and outliers without the potential confusion caused by overlapping densities.**
+
+
+
+**Box plot as an alternative plot for length distribution of the gene classes**
+```{r}
+# Define the box plot
+box_plot <- ggplot(filtered_renamed_gene, aes(x = gene_type, y = gene_length2, fill = gene_type)) +  # Define data and aesthetics
+  geom_boxplot() +  # Add box plot
+  labs(x = "Gene Classes", y = "Gene Length", title = "Box Plot of Gene Length by Class") +  # Set labels and title
+  scale_fill_manual(values = c("pseudo" ="#8DA0CB", "mRNA" = "#FC8D62", "lncRNA" = "#66C2A5")) +  # Manually set fill colors
+  scale_color_manual(values = c("pseudo" ="#8DA0CB", "mRNA" = "#FC8D62", "lncRNA" = "#66C2A5")) +  # Manually set line colors
+  theme_minimal() +  # Apply minimal theme
+  theme(
+    plot.title = element_text(size = 16),  # Set plot title size
+    axis.title = element_text(face = "bold", size = 16),  # Set axis title font style and size
+    axis.line = element_line(),  # Set axis lines
+    axis.text = element_text(size = 16, hjust = 1, face = "bold"),  # Set axis text size, horizontal justification, and font style
+    panel.border = element_rect(fill = NA, linewidth = 0.5),  # Set panel border
+    panel.grid.minor.y = element_blank()  # Remove minor grid lines on y-axis
+  )
+```
+
+```{r box_plot, fig.width = 6, fig.height = 6, echo=FALSE, message = FALSE}
+plot(box_plot)
+```
+
+
+
+
+### Included figure(combined Plot).
+```{r}
+# Combine plots A and B horizontally with specified relative widths
+combined_plot <- A + B + plot_layout(widths = c(1, 2))
+
+# Annotate the combined plot to set the numbering A and B respectively
+final_plot2 <- combined_plot + plot_annotation(tag_levels = list(c("A", "B")))
+
+```
+
+```{r final_plot2, fig.width = 12, fig.height = 6, echo=FALSE, message = FALSE}
+plot(final_plot2)
+```
+
+
+
+# Differential gene expression:
+
+
+
+## 5.1 Load and prepare data.
+```{r}
+# Change working directory.
+setwd("~/Downloads/DataVis_R_2024_FinalProject/")
+
+# Read the .txt file.
+DEseq2_data <- read.table("deseq2_dummy.txt", header = TRUE, sep = "\t")
+
+# Calculate the average of normalized counts for each gene across all samples (normal and cancer).
+DEseq2_data_with_av_normalized_count <- DEseq2_data %>%
+  rowwise() %>%
+  mutate(avg_normalized_count = mean(c_across(9:14), na.rm = TRUE)) %>%
+  ungroup()
+
+# Select the top 2000 genes based on the average normalized count values.
+top_2000_genes <- DEseq2_data_with_av_normalized_count %>%
+  arrange(desc(avg_normalized_count)) %>%
+  slice_head(n = 2000)
+
+# Display the first few rows of the top 2000 genes
+view(top_2000_genes)
+
+# Add a column to indicate significant genes based on adjusted p-value and log2 fold change
+top_2000_genes <- top_2000_genes %>%
+  mutate(significant = case_when(log2FoldChange > 0 & padj < 0.1 ~ "up",
+                                 log2FoldChange < 0 & padj < 0.1 ~ "down",
+                                 TRUE ~ "n.s"))
+
+# Add a column to label significant genes with log2 fold change higher than 2
+top_2000_genes_label <- top_2000_genes %>%
+  mutate(label = ifelse(padj < 0.1 & log2FoldChange > 2, gene_id, NA))
+
+```
+
+
+
+## Plotting
+
+
+
+### Volcano plots
+```{r}
+# Create the volcano plot
+volcano_plot <- ggplot(top_2000_genes, aes(x = log2FoldChange, y = -log10(padj))) +  # Define data and aesthetics
+  geom_point(aes(fill = significant), shape = 21, size = 2) +  # Add points with fill based on 'significant' column
+  scale_fill_manual(values = c("up" = "brown", "down" = "skyblue", "n.s" = "white")) +  # Manually set fill colors
+  labs(title = "Diff. expressed genes (Cancer vs. Normal)",  # Set plot title and axis labels
+       x = "Log2 Fold Change",
+       y = "Adjusted p-value (-log10)",
+       fill = "Regulation") +  # Set fill legend title
+  theme_minimal() +  # Apply minimal theme
+  geom_label_repel(aes(label = top_2000_genes_label$label),  # Add labels with repulsion to avoid overlapping
+                   nudge_y = 0.5,  # Adjust label position vertically
+                   nudge_x = 0.5,  # Adjust label position horizontally
+                   box.padding = 0.5,  # Set padding around labels
+                   point.padding = 0.5,  # Set padding around points
+                   na.rm = TRUE,   # Remove missing values
+                   max.overlaps = Inf) +  # Set maximum overlaps for labels
+  geom_vline(xintercept = 0, linewidth = 0.5) +  # Add vertical line at x = 0
+  geom_hline(yintercept = 1, linetype = "dotted", linewidth = 0.5) +  # Add horizontal line at y = 1 with dotted line
+  coord_cartesian(xlim = c(-2, 5), ylim=c(0.4, 10), expand = TRUE) +  # Set limits for x and y axes
+  theme(
+    plot.title = element_text(size = 16),  # Set plot title size
+    axis.title = element_text(face = "bold", size = 16),  # Set axis title font style and size
+    axis.text = element_text(size = 16, face = "bold", hjust = 1),  # Set axis text size, font style, and horizontal justification
+    panel.grid.major.y = element_blank(),  # Remove major grid lines on y-axis
+    panel.grid.minor.x = element_blank(),  # Remove minor grid lines on x-axis
+    panel.grid.major.x = element_blank(),  # Remove major grid lines on x-axis
+    panel.grid.minor.y = element_blank(),  # Remove minor grid lines on y-axis
+    panel.border = element_rect(linewidth = 2, fill = NA),  # Set panel border
+    legend.position = c(0.91, 0.91),  # Set legend position
+    legend.box.background = element_rect(color = "black", fill = NA, linewidth = 1.5),  # Set legend box background
+    legend.key.width = unit(1.2, "cm")  # Set legend key width
+  )
+
+```
+
+```{r volcano_plot, fig.width, fig.height = 8.5, echo=FALSE, message = FALSE}
+plot(volcano_plot)
+````
+
+
+
+### Heatmaps
+```{r}
+deseq2_res_f <- top_2000_genes %>% #change deseq2_dummy to  subset above
+ 
+slice_min(n = 20, order_by = padj) #i changed "padj" to padj without the quotes
+
+# Reshape the data for plotting
+deseq2_res_long <- deseq2_res_f %>%
+  dplyr::select(gene_id, 9:14) %>%
+  pivot_longer(cols = 2:7, names_to = "condition", values_to = "counts") #changed cals to 2:7 instead of 9:14
+
+# Create the heatmap
+Heatmaps <- ggplot(deseq2_res_long, aes(x = condition, y = gene_id, fill = log2(counts))) +  # Define data and aesthetics
+  geom_tile(color = "black") +  # Add tiles with black borders
+  geom_text(aes(label = round(log2(counts), digits = 2))) +  # Add text labels with rounded log2 counts
+  coord_cartesian(expand = FALSE) +  # Set Cartesian coordinates with no expansion
+  scale_fill_distiller(palette = "Purples") +  # Set color palette for fill
+  labs(x = "Sample", y = "Gene IDs", fill = "Counts (log2)") +  # Set axis and fill legend labels
+  theme_minimal() +  # Apply minimal theme
+  theme(
+    legend.position = "top",  # Set legend position to top
+    legend.ticks = element_blank(),  # Remove legend ticks
+    title = element_text(size = 14),  # Set title text size
+    axis.text = element_text(size = 11, colour = "black"),  # Set axis text size and color
+    axis.title = element_text(size = 15, face = "bold"),  # Set axis title size and font
+    panel.border = element_rect(linewidth = 3, fill = NA)  # Set panel border properties
+  )
+
+````
+
+```{r Heatmaps, fig.width, fig.height = 8.5, echo=FALSE, message = FALSE}
+plot(Heatmaps)
+````
+
